@@ -6,8 +6,8 @@ namespace inventory_app_backend.Services
 {
     public interface ICategoryService
     {
-        Task<List<Category>> AllCategories();
-        Task<int> AddCategory(Category Category);
+        Task<List<Category>> GetAllCategories();
+        Task<Category> AddCategory(Category Category);
         Task<int> UpdateCategory(Category Category);
         Task<int> DeleteCategory(int id);
     }
@@ -15,41 +15,72 @@ namespace inventory_app_backend.Services
     public class CategoryService : ICategoryService
     {
         private readonly InventoryContext _context;
-        private readonly DbSet<Category> _dbSet;
 
         public CategoryService(InventoryContext context)
         {
             _context = context;
-            _dbSet = context.Set<Category>();
         }
 
-        public async Task<int> AddCategory(Category Category)
+        public async Task<List<Category>> GetAllCategories()
         {
-            await _context.Categories.AddAsync(Category);
-            int afectedRow = await _context.SaveChangesAsync();
-            return afectedRow;
+            try
+            {
+                return await _context.Categories.ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("An error occurred while retrieving categories", ex);
+            }
         }
 
-        public async Task<List<Category>> AllCategories()
+        public async Task<Category> AddCategory(Category category)
         {
-            return await _dbSet.ToListAsync();
+            try
+            {
+                _context.Set<Category>().Add(category);
+                await _context.SaveChangesAsync();
+                return category;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("An error occurred while adding the category", ex);
+            }
         }
 
         public async Task<int> DeleteCategory(int id)
         {
-            var Category = await _context.Categories.FindAsync(id);
-            if (Category == null)
+            try
             {
-                return 0;
+                var category = await _context.Categories.FindAsync(id);
+                if (category == null)
+                {
+                    throw new Exception("Category not found");
+                }
+                _context.Categories.Remove(category);
+                return await _context.SaveChangesAsync();
             }
-            _context.Categories.Remove(Category);
-            return await _context.SaveChangesAsync();
+            catch (Exception ex)
+            {
+                throw new Exception("An error occurred while deleting the category", ex);
+            }
         }
 
         public async Task<int> UpdateCategory(Category Category)
         {
-            _context.Categories.Update(Category);
-            return await _context.SaveChangesAsync();
+            try
+            {
+                var existingCategory = await _context.Categories.FindAsync(Category.IdCategory);
+                if (existingCategory == null)
+                {
+                    throw new Exception("Category not found");
+                }
+                existingCategory.Name = Category.Name;
+                return await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("An error occurred while updating the category", ex);
+            }
         }
     }
 }

@@ -32,12 +32,10 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowSpecificOrigin", builder =>
-    {
-        builder.WithOrigins("http://localhost:5173")
-            .AllowAnyMethod()
-            .AllowAnyHeader();
-    });
+    options.AddPolicy("AllowFrontend",
+        builder => builder.WithOrigins("http://localhost:3000")
+                        .AllowAnyMethod()
+                        .AllowAnyHeader());
 });
 
 builder.Services.AddControllers();
@@ -50,23 +48,6 @@ builder.Services.AddDbContext<InventoryContext>(options => {
 
 var app = builder.Build();
 
-app.UseStaticFiles(new StaticFileOptions
-{
-    OnPrepareResponse = context =>
-    {
-        context.Context.Response.Headers.Add("X-Content-Type-Options", "nosniff");
-    }
-});
-
-app.Use(async (context, next) =>
-{
-    context.Response.Headers.Add("X-Content-Type-Options", "nosniff");
-    context.Response.Headers.Add("Content-Security-Policy", "frame-ancestors 'self';");
-    context.Response.Headers.Add("Referrer-Policy", "strict-origin-when-cross-origin");
-    context.Response.Headers.Add("Permissions-Policy", "geolocation=(), microphone=()");
-    await next();
-});
-
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -74,6 +55,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 

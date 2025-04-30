@@ -7,12 +7,12 @@ namespace inventory_app_backend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class LoginController : ControllerBase
+    public class HomeController : ControllerBase
     {
-        private readonly ILogger<LoginController> _logger;
+        private readonly ILogger<HomeController> _logger;
         private readonly IUserService _userService;
 
-        public LoginController(ILogger<LoginController> logger, IUserService userService)
+        public HomeController(ILogger<HomeController> logger, IUserService userService)
         {
             _logger = logger;
             _userService = userService;
