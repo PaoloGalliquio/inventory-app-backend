@@ -51,7 +51,7 @@ namespace inventory_app_backend.Controllers
                 if (result != null)
                 {
                     _logger.LogInformation("Product added successfully");
-                    return CreatedAtAction(nameof(Get), new { id = product.IdProduct }, product);
+                    return CreatedAtAction(nameof(Get), new { id = product.IdProduct }, new { product, message = "Producto creado satisfactoriamente"});
                 }
                 _logger.LogWarning("Failed to add product");
                 return BadRequest("Failed to add product");
@@ -64,7 +64,7 @@ namespace inventory_app_backend.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Put(int id, [FromBody] Product product)
+        public async Task<IActionResult> Put(int id, [FromBody] CreateProductDTO product)
         {
             try
             {
@@ -77,7 +77,7 @@ namespace inventory_app_backend.Controllers
                 if (result > 0)
                 {
                     _logger.LogInformation("Product updated successfully");
-                    return NoContent();
+                    return Ok(new { product, message = "Producto actualizado satisfactoriamente" });
                 }
                 _logger.LogWarning("Failed to update product");
                 return NotFound("Product not found");
@@ -99,7 +99,7 @@ namespace inventory_app_backend.Controllers
                 if (result > 0)
                 {
                     _logger.LogInformation("Product deleted successfully");
-                    return NoContent();
+                    return Ok(new { message = "Producto eliminado satisfactoriamente" });
                 }
                 _logger.LogWarning("Failed to delete product");
                 return NotFound("Product not found");

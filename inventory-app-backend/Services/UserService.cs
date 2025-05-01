@@ -1,4 +1,7 @@
-﻿using inventory_app_backend.Mapppers;
+﻿using inventory_app_backend.Constants;
+using inventory_app_backend.DTO;
+using inventory_app_backend.DTO.User;
+using inventory_app_backend.Mapppers;
 using inventory_app_backend.Models;
 using inventory_app_backend.ViewModels.User;
 using Microsoft.EntityFrameworkCore;
@@ -13,14 +16,15 @@ namespace inventory_app_backend.Services
     public interface IUserService
     {
         Task<List<User>> AllUsers();
-        Task<int> AddUser(CreateUserViewModel user);
-        Task<int> UpdateUser(User user);
+        Task<int> AddUser(UserDTO user);
+        Task<int> UpdateUser(UpdateUserDTO user);
         Task<int> DeleteUser(int id);
         Task<User> GetUserById(int id);
         Task<User> GetUserByEmail(string email);
         Task<UserViewModel> GetUserByEmailAndPassword(string email, string password);
         bool VerifyPassword(string enteredPassword, string storedHash);
         string GenerateToken(string email);
+        Task<UserDTO> GetUser(int id);
     }
 
     public class UserService : IUserService
@@ -36,10 +40,16 @@ namespace inventory_app_backend.Services
             _configurationManager = configurationManager;
         }
 
-        public async Task<int> AddUser(CreateUserViewModel viewModel)
+        public async Task<int> AddUser(UserDTO userDTO)
         {
-            var user = UserMapper.MapCreateUserViewModelToUser(viewModel);
-            user.Password = HashPassword(viewModel.Password);
+            var user = new User
+            {
+                Name = userDTO.Name,
+                Email = userDTO.Email,
+                Password = HashPassword(userDTO.Password),
+                IdUserRole = userDTO.IdRole,
+                IdStatus = (int)Status.Active
+            };
             await _context.Users.AddAsync(user);
             int afectedRow = await _context.SaveChangesAsync();
             return afectedRow;
@@ -145,10 +155,50 @@ namespace inventory_app_backend.Services
             return _context.Users.FirstOrDefaultAsync(u => u.IdUser == id);
         }
 
-        public async Task<int> UpdateUser(User user)
+        public async Task<int> UpdateUser(UpdateUserDTO user)
         {
-            _context.Users.Update(user);
-            return await _context.SaveChangesAsync();
+            try
+            {
+                var existingUser = await _context.Users.FindAsync(user.IdUser);
+                if (existingUser == null)
+                {
+                    throw new Exception("User not found");
+                }
+                existingUser.Name = user.Name;
+                existingUser.Email = user.Email;
+                existingUser.IdUserRole = user.IdRole;
+                existingUser.Password = HashPassword(user.Password);
+                return await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("An error occurred while updating the user", ex);
+            }
+        }
+
+        public async Task<UserDTO> GetUser(int id)
+        {
+            try
+            {
+                var user = await _context.Users
+                    .Where(u => u.IdUser == id)
+                    .Select(u => new UserDTO
+                    {
+                        Name = u.Name,
+                        Email = u.Email,
+                        IdRole = u.IdUserRole
+                    })
+                    .FirstOrDefaultAsync();
+                if (user == null)
+                {
+                    throw new Exception("User not found");
+                }
+                return user;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("An error occurred while retrieving the user", ex);
+            }
         }
     }
 }

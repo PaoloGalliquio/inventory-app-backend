@@ -1,6 +1,7 @@
 ﻿using inventory_app_backend.DTO;
 using inventory_app_backend.Models;
 using Microsoft.EntityFrameworkCore;
+using inventory_app_backend.Constants;
 
 namespace inventory_app_backend.Services
 {
@@ -8,7 +9,7 @@ namespace inventory_app_backend.Services
     {
         Task<List<ProductDTO>> GetAllProducts();
         Task<Product> AddProduct(CreateProductDTO Product);
-        Task<int> UpdateProduct(Product Product);
+        Task<int> UpdateProduct(CreateProductDTO Product);
         Task<int> DeleteProduct(int id);
         Task<ProductDTO> GetProduct(int id);
     }
@@ -50,7 +51,8 @@ namespace inventory_app_backend.Services
             try
             {
                 return await _context.Products
-                    .Include(p => p.IdCategoryNavigation) // Incluye la categoría
+                    .Where(o => o.IdStatus == (int)Status.Active)
+                    .Include(p => p.IdCategoryNavigation)
                     .Select(p => new ProductDTO
                     {
                         IdProduct = p.IdProduct,
@@ -76,12 +78,13 @@ namespace inventory_app_backend.Services
         {
             try
             {
-                var product = await _context.Products.FindAsync(id);
-                if (product == null)
+                var existingProduct = await _context.Products.FindAsync(id);
+                if (existingProduct == null)
                 {
                     throw new Exception("Product not found");
                 }
-                _context.Products.Remove(product);
+                existingProduct.IdStatus = (int)Status.Inactive;
+                _context.Products.Update(existingProduct);
                 return await _context.SaveChangesAsync();
             }
             catch (Exception ex)
@@ -90,7 +93,7 @@ namespace inventory_app_backend.Services
             }
         }
 
-        public async Task<int> UpdateProduct(Product Product)
+        public async Task<int> UpdateProduct(CreateProductDTO Product)
         {
             try
             {
@@ -104,7 +107,6 @@ namespace inventory_app_backend.Services
                 existingProduct.Price = Product.Price;
                 existingProduct.Quantity = Product.Quantity;
                 existingProduct.IdCategory = Product.IdCategory;
-                existingProduct.IdStatus = Product.IdStatus;
                 _context.Products.Update(existingProduct);
                 return await _context.SaveChangesAsync();
             }
@@ -128,6 +130,7 @@ namespace inventory_app_backend.Services
                         Description = p.Description,
                         Price = p.Price,
                         Quantity = p.Quantity,
+                        IdCategory = p.IdCategoryNavigation.IdCategory,
                         Category = new CategoryDTO
                         {
                             IdCategory = p.IdCategoryNavigation.IdCategory,
