@@ -47,6 +47,7 @@ namespace inventory_app_backend.Controllers
             try
             {
                 var validatorResult = _validator.RunValidatorForCreate(product);
+                Console.WriteLine($"Validator has errors: {validatorResult.HasErrors()}");
                 if (validatorResult.HasErrors()) return BadRequest(validatorResult);
 
                 _logger.LogInformation("Adding a new product");
@@ -59,7 +60,7 @@ namespace inventory_app_backend.Controllers
                 if (result != null)
                 {
                     _logger.LogInformation("Product added successfully");
-                    return CreatedAtAction(nameof(Get), new { id = product.IdProduct }, new { product, message = "Producto creado satisfactoriamente"});
+                    return Ok(new { message = "Producto creado satisfactoriamente"});
                 }
                 _logger.LogWarning("Failed to add product");
                 return BadRequest("Failed to add product");
@@ -88,7 +89,7 @@ namespace inventory_app_backend.Controllers
                 if (result > 0)
                 {
                     _logger.LogInformation("Product updated successfully");
-                    return Ok(new { product, message = "Producto actualizado satisfactoriamente" });
+                    return Ok(new { message = "Producto actualizado satisfactoriamente" });
                 }
                 _logger.LogWarning("Failed to update product");
                 return NotFound("Product not found");

@@ -15,6 +15,7 @@ namespace inventory_app_backend.Validators
         public ValidatorResult RunValidatorForCreate(UserDTO user)
         {
             var result = ValidatorResult.GetSuccessfulResult();
+            result.ClearErrors();
             if (string.IsNullOrEmpty(user.Name))
             {
                 result.AddError("Name", "El nombre es obligatorio");

@@ -12,6 +12,7 @@ namespace inventory_app_backend.Validators
         public ValidatorResult RunValidatorForLogin(LoginDTO login)
         {
             var result = ValidatorResult.GetSuccessfulResult();
+            result.ClearErrors();
             if (string.IsNullOrEmpty(login.Email))
             {
                 result.AddError("Email", "El email es obligatorio");

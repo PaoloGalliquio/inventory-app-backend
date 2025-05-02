@@ -1,0 +1,1 @@
+Configurar el proyecto de inicio como inventory-app-backend y http

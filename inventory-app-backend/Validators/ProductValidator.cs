@@ -13,6 +13,7 @@ namespace inventory_app_backend.Validators
         public ValidatorResult RunValidatorForCreate(CreateProductDTO product)
         {
             var result = ValidatorResult.GetSuccessfulResult();
+            result.ClearErrors();
             if (string.IsNullOrEmpty(product.Name))
             {
                 result.AddError("Name", "El nombre es obligatorio");

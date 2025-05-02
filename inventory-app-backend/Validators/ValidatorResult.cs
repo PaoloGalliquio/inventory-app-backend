@@ -10,16 +10,23 @@ namespace inventory_app_backend.Validators
         public string message { get; set; }
         public Dictionary<string, List<string>> errors { get; set; }
 
+        public ValidatorResult()
+        {
+            success = true;
+            message = string.Empty;
+            errors = new Dictionary<string, List<string>>();
+        }
+
         public bool HasErrors()
         {
-            return !success || errors.SelectMany(x => x.Value).Any();
+            return !success || errors?.SelectMany(x => x.Value).Any() == true;
         }
 
         public static ValidatorResult GetSuccessfulResult(string message = null)
         {
             return new ValidatorResult
             {
-                message = message ?? String.Empty,
+                message = message ?? string.Empty,
                 success = true,
                 errors = new Dictionary<string, List<string>>()
             };
@@ -38,6 +45,13 @@ namespace inventory_app_backend.Validators
             }
             errors[v1].Add(v2);
             message = v2;
+        }
+
+        public void ClearErrors()
+        {
+            success = true;
+            message = string.Empty;
+            errors = new Dictionary<string, List<string>>();
         }
     }
 }
