@@ -46,7 +46,7 @@ namespace inventory_app_backend.Controllers
                     _logger.LogWarning("Invalid email or password");
                     return Unauthorized("Invalid email or password");
                 }
-                var userViewModel = new LoginResultDTO
+                var loginResultDTO = new LoginResultDTO
                 {
                     IdUser = user.IdUser,
                     Name = user.Name,
@@ -57,7 +57,7 @@ namespace inventory_app_backend.Controllers
                 };
                 _logger.LogInformation("User logged in successfully");
 
-                return Ok(userViewModel);
+                return Ok(loginResultDTO);
             }
             catch (Exception ex)
             {

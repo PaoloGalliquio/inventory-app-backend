@@ -50,7 +50,7 @@ namespace inventory_app_backend.Controllers
                 if (result != null)
                 {
                     _logger.LogInformation("Notification added successfully");
-                    return CreatedAtAction(nameof(Get), null, new { notification, message = "Notification created successfully" });
+                    return CreatedAtAction(nameof(Get), null, new { notification, message = "Notificación creada satisfactoriamente" });
                 }
                 _logger.LogWarning("Failed to add notification");
                 return BadRequest("Failed to add notification");
