@@ -1,9 +1,6 @@
 ﻿using inventory_app_backend.Constants;
-using inventory_app_backend.DTO;
 using inventory_app_backend.DTO.User;
-using inventory_app_backend.Mapppers;
 using inventory_app_backend.Models;
-using inventory_app_backend.ViewModels.User;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -15,13 +12,12 @@ namespace inventory_app_backend.Services
 {
     public interface IUserService
     {
-        Task<List<User>> AllUsers();
+        Task<List<GetUserDTO>> AllUsers();
         Task<int> AddUser(UserDTO user);
         Task<int> UpdateUser(UpdateUserDTO user);
         Task<int> DeleteUser(int id);
-        Task<User> GetUserById(int id);
         Task<User> GetUserByEmail(string email);
-        Task<UserViewModel> GetUserByEmailAndPassword(string email, string password);
+        Task<LoginResultDTO> GetUserByEmailAndPassword(string email, string password);
         bool VerifyPassword(string enteredPassword, string storedHash);
         string GenerateToken(string email);
         Task<UserDTO> GetUser(int id);
@@ -99,20 +95,54 @@ namespace inventory_app_backend.Services
             return true;
         }
 
-        public async Task<List<User>> AllUsers()
+        public async Task<List<GetUserDTO>> AllUsers()
         {
-            return await _dbSet.ToListAsync();
+            try
+            {
+                var users = await _context.Users
+                    .Where(o => o.IdStatus == (int)Status.Active)
+                    .Select(u => new
+                    {
+                        u.IdUser,
+                        u.Name,
+                        u.Email,
+                        u.IdUserRole
+                    })
+                    .ToListAsync();
+
+                var result = users.Select(u => new GetUserDTO
+                {
+                    IdUser = u.IdUser,
+                    Name = u.Name,
+                    Email = u.Email,
+                    IdRole = u.IdUserRole,
+                    RoleName = Enum.GetName(typeof(Roles), u.IdUserRole) ?? "-"
+                }).ToList();
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("An error occurred while retrieving all users", ex);
+            }
         }
 
         public async Task<int> DeleteUser(int id)
         {
-            var user = await _context.Users.FindAsync(id);
-            if (user == null)
+            try
             {
-                return 0;
+                var existingUser = await _context.Users.FindAsync(id);
+                if (existingUser == null)
+                {
+                    throw new Exception("User not found");
+                }
+                existingUser.IdStatus = (int)Status.Inactive;
+                return await _context.SaveChangesAsync();
             }
-            _context.Users.Remove(user);
-            return await _context.SaveChangesAsync();
+            catch (Exception ex)
+            {
+                throw new Exception("An error occurred while updating the user", ex);
+            }
         }
 
         public string GenerateToken(string email)
@@ -137,22 +167,30 @@ namespace inventory_app_backend.Services
 
         public async Task<User> GetUserByEmail(string email)
         {
-            return await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+            
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+            if (user != null)
+            {
+                return user;
+            }
+            throw new Exception("User not found");
         }
 
-        public async Task<UserViewModel> GetUserByEmailAndPassword(string email, string password)
+        public async Task<LoginResultDTO> GetUserByEmailAndPassword(string email, string password)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email && u.Password == password);
             if (user == null)
             {
                 return null;
             }
-            return UserMapper.MapTopUserViewModel(user);
-        }
-
-        public Task<User> GetUserById(int id)
-        {
-            return _context.Users.FirstOrDefaultAsync(u => u.IdUser == id);
+            return new LoginResultDTO
+            {
+                IdUser = user.IdUser,
+                Name = user.Name,
+                Email = user.Email,
+                IdUserRole = user.IdUserRole,
+                UserRoleName = Enum.GetName(typeof(Roles), user.IdUserRole) ?? "-"
+            };
         }
 
         public async Task<int> UpdateUser(UpdateUserDTO user)

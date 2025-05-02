@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Newtonsoft.Json.Serialization;
+using inventory_app_backend.Validators;
+using QuestPDF.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +17,9 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<ILoginValidator, LoginValidator>();
+builder.Services.AddScoped<IProductValidator, ProductValidator>();
+builder.Services.AddScoped<IUserValidator, UserValidator>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {
@@ -56,6 +61,8 @@ builder.Services.AddControllers()
             NamingStrategy = null
         };
     });
+
+QuestPDF.Settings.License = LicenseType.Community;
 
 var app = builder.Build();
 

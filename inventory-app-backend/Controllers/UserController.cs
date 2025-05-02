@@ -1,5 +1,6 @@
 ﻿using inventory_app_backend.DTO.User;
 using inventory_app_backend.Services;
+using inventory_app_backend.Validators;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,11 +13,13 @@ namespace inventory_app_backend.Controllers
     {
         private readonly IUserService _userService;
         private readonly ILogger<UserController> _logger;
+        private readonly IUserValidator _validator;
 
-        public UserController(IUserService userService, ILogger<UserController> logger)
+        public UserController(IUserService userService, ILogger<UserController> logger, IUserValidator validator)
         {
             _userService = userService;
             _logger = logger;
+            _validator = validator;
         }
 
         [HttpGet]
@@ -40,6 +43,9 @@ namespace inventory_app_backend.Controllers
         {
             try
             {
+                var validatorResult = _validator.RunValidatorForCreate(user);
+                if (validatorResult.HasErrors()) return BadRequest(validatorResult);
+
                 if (user == null)
                 {
                     return BadRequest(new { message = "Usuario no válido" });
@@ -63,6 +69,9 @@ namespace inventory_app_backend.Controllers
         {
             try
             {
+                var validatorResult = _validator.RunValidatorForUpdate(user);
+                if (validatorResult.HasErrors()) return BadRequest(validatorResult);
+
                 if (id != user.IdUser)
                 {
                     return BadRequest(new { message = "No se encontró al usuario" });

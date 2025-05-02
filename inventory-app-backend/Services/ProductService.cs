@@ -12,6 +12,7 @@ namespace inventory_app_backend.Services
         Task<int> UpdateProduct(CreateProductDTO Product);
         Task<int> DeleteProduct(int id);
         Task<ProductDTO> GetProduct(int id);
+        Task<List<ProductDTO>> GetProductsWithLowStock();
     }
 
     public class ProductService : IProductService
@@ -36,6 +37,10 @@ namespace inventory_app_backend.Services
                     IdCategory = product.IdCategory,
                     IdStatus = 1
                 };
+                if(product.Quantity < 5)
+                {
+                    NotifyAdmins(newProduct);
+                }
                 _context.Set<Product>().Add(newProduct);
                 await _context.SaveChangesAsync();
                 return newProduct;
@@ -107,6 +112,10 @@ namespace inventory_app_backend.Services
                 existingProduct.Price = Product.Price;
                 existingProduct.Quantity = Product.Quantity;
                 existingProduct.IdCategory = Product.IdCategory;
+                if(Product.Quantity < 5)
+                {
+                    NotifyAdmins(existingProduct);
+                }
                 _context.Products.Update(existingProduct);
                 return await _context.SaveChangesAsync();
             }
@@ -148,6 +157,60 @@ namespace inventory_app_backend.Services
             {
                 throw new Exception("An error occurred while retrieving the product", ex);
             }
+        }
+
+        public async Task<List<ProductDTO>> GetProductsWithLowStock()
+        {
+            try
+            {
+                var products = await _context.Products
+                    .Where(o => o.IdStatus == (int)Status.Active && o.Quantity < 5)
+                    .Include(p => p.IdCategoryNavigation)
+                    .Select(p => new ProductDTO
+                    {
+                        IdProduct = p.IdProduct,
+                        Name = p.Name,
+                        Description = p.Description,
+                        Price = p.Price,
+                        Quantity = p.Quantity,
+                        Category = new CategoryDTO
+                        {
+                            IdCategory = p.IdCategoryNavigation.IdCategory,
+                            Name = p.IdCategoryNavigation.Name
+                        }
+                    })
+                    .ToListAsync();
+                if (products == null || !products.Any())
+                {
+                    throw new Exception("No products found with low stock");
+                }
+                return products;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("An error occurred while retrieving products with low stock", ex);
+            }
+        }
+
+        private async void NotifyAdmins(Product product)
+        {
+
+            var administrators = await _context.Users
+                    .Where(o => o.IdStatus == (int)Status.Active && o.IdUserRole == (int)Roles.Admin)
+                    .ToListAsync();
+            var notifications = new List<Notification>();
+            foreach (var admin in administrators)
+            {
+                var newNotification = new Notification
+                {
+                    Title = "Alerta de nuevo producto con existencias bajas",
+                    Description = $"El producto {product.Name} se encuentra con existencias bajas ({product.Quantity} en almacén).",
+                    IdAddresse = admin.IdUser,
+                    IdStatus = (int)Status.Pending
+                };
+                notifications.Add(newNotification);
+            }
+            _context.Set<Notification>().AddRange(notifications);
         }
     }
 }

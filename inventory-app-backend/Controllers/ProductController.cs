@@ -1,8 +1,11 @@
-﻿using inventory_app_backend.DTO;
+﻿using ClosedXML.Excel;
+using inventory_app_backend.DTO;
 using inventory_app_backend.Models;
 using inventory_app_backend.Services;
+using inventory_app_backend.Validators;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using QuestPDF.Fluent;
 
 namespace inventory_app_backend.Controllers
 {
@@ -13,11 +16,13 @@ namespace inventory_app_backend.Controllers
     {
         private readonly IProductService _productService;
         private readonly ILogger<ProductController> _logger;
+        private readonly IProductValidator _validator;
 
-        public ProductController(IProductService productService, ILogger<ProductController> logger)
+        public ProductController(IProductService productService, ILogger<ProductController> logger, IProductValidator validator)
         {
             _productService = productService;
             _logger = logger;
+            _validator = validator;
         }
 
         [HttpGet]
@@ -41,6 +46,9 @@ namespace inventory_app_backend.Controllers
         {
             try
             {
+                var validatorResult = _validator.RunValidatorForCreate(product);
+                if (validatorResult.HasErrors()) return BadRequest(validatorResult);
+
                 _logger.LogInformation("Adding a new product");
                 if (product == null)
                 {
@@ -68,6 +76,9 @@ namespace inventory_app_backend.Controllers
         {
             try
             {
+                var validatorResult = _validator.RunValidatorForUpdate(product);
+                if (validatorResult.HasErrors()) return BadRequest(validatorResult);
+
                 _logger.LogInformation("Updating product with ID {id}", id);
                 if (product == null || id != product.IdProduct)
                 {
@@ -130,6 +141,130 @@ namespace inventory_app_backend.Controllers
             {
                 _logger.LogError(ex, "An error occurred while retrieving a product");
                 return StatusCode(StatusCodes.Status500InternalServerError, "Internal server error");
+            }
+        }
+
+        [HttpGet("GetProductsLowStockReportExcel")]
+        public async Task<IActionResult> GetProductsLowStockReportExcel()
+        {
+            try
+            {
+                _logger.LogInformation("Generating low stock report");
+                var products = await _productService.GetProductsWithLowStock();
+                if (products == null || !products.Any())
+                {
+                    _logger.LogWarning("No products found with low stock");
+                    return NotFound(new { message = "No se encontraron productos con existencias bajas" });
+                }
+                using (var workbook = new XLWorkbook())
+                {
+                    var worksheet = workbook.Worksheets.Add("Productos bajo stock");
+
+                    worksheet.Cell(1, 1).Value = "Nombre";
+                    worksheet.Cell(1, 2).Value = "Descripción";
+                    worksheet.Cell(1, 3).Value = "Precio";
+                    worksheet.Cell(1, 4).Value = "Cantidad";
+                    worksheet.Cell(1, 5).Value = "Categoría";
+
+                    for (int i = 0; i < products.Count; i++)
+                    {
+                        var product = products[i];
+                        worksheet.Cell(i + 2, 1).Value = product.Name;
+                        worksheet.Cell(i + 2, 2).Value = product.Description;
+                        worksheet.Cell(i + 2, 3).Value = product.Price;
+                        worksheet.Cell(i + 2, 4).Value = product.Quantity;
+                        worksheet.Cell(i + 2, 5).Value = product.Category?.Name;
+                    }
+                    worksheet.Columns().AdjustToContents();
+
+                    using (var stream = new MemoryStream())
+                    {
+                        workbook.SaveAs(stream);
+                        var content = stream.ToArray();
+                        _logger.LogInformation("Low stock report generated successfully");
+                        return File(
+                            content,
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            "ProductosBajoStock.xlsx");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while generating the low stock report");
+                return BadRequest(new { message = "Error al obtener reporte de existencias bajas" });
+            }
+        }
+
+        [HttpGet("GetProductsLowStockReportPdf")]
+        public async Task<IActionResult> GetProductsLowStockReportPdf()
+        {
+            try
+            {
+                _logger.LogInformation("Generating low stock PDF report");
+                var products = await _productService.GetProductsWithLowStock();
+                if (products == null || !products.Any())
+                {
+                    _logger.LogWarning("No products found with low stock");
+                    return NotFound(new { message = "No se encontraron productos con existencias bajas" });
+                }
+
+                var document = Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Margin(50);
+                        page.Header().Text("Reporte de Productos con Stock Bajo").FontSize(20).Bold();
+                        page.Content().PaddingVertical(10).Column(col =>
+                        {
+                            col.Item().Table(table =>
+                            {
+                                table.ColumnsDefinition(columns =>
+                                {
+                                    columns.RelativeColumn();
+                                    columns.RelativeColumn();
+                                    columns.RelativeColumn();
+                                    columns.RelativeColumn();
+                                    columns.RelativeColumn();
+                                });
+
+                                table.Header(header =>
+                                {
+                                    header.Cell().Text("Nombre");
+                                    header.Cell().Text("Descripción");
+                                    header.Cell().Text("Precio");
+                                    header.Cell().Text("Cantidad");
+                                    header.Cell().Text("Categoría");
+                                });
+
+                                foreach (var product in products)
+                                {
+                                    table.Cell().Text(product.Name);
+                                    table.Cell().Text(product.Description);
+                                    table.Cell().Text(product.Price.ToString("C"));
+                                    table.Cell().Text(product.Quantity.ToString());
+                                    table.Cell().Text(product.Category?.Name ?? "N/A");
+                                }
+                            });
+                        });
+                        page.Footer().AlignCenter().Text(x => x.CurrentPageNumber());
+                    });
+                });
+
+                using (var stream = new MemoryStream())
+                {
+                    document.GeneratePdf(stream);
+                    _logger.LogInformation("Low stock PDF report generated successfully");
+                    return File(
+                        stream.ToArray(),
+                        "application/pdf",
+                        "ProductosBajoStock.pdf");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while generating the low stock PDF report");
+                return BadRequest(new { message = "Error al obtener reporte PDF de existencias bajas" });
             }
         }
     }

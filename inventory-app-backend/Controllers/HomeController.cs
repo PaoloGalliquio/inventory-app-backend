@@ -1,6 +1,7 @@
-﻿using inventory_app_backend.Mapppers;
+﻿using inventory_app_backend.Constants;
+using inventory_app_backend.DTO.User;
 using inventory_app_backend.Services;
-using inventory_app_backend.ViewModels.User;
+using inventory_app_backend.Validators;
 using Microsoft.AspNetCore.Mvc;
 
 namespace inventory_app_backend.Controllers
@@ -11,37 +12,49 @@ namespace inventory_app_backend.Controllers
     {
         private readonly ILogger<HomeController> _logger;
         private readonly IUserService _userService;
+        private readonly ILoginValidator _validator;
 
-        public HomeController(ILogger<HomeController> logger, IUserService userService)
+        public HomeController(ILogger<HomeController> logger, IUserService userService, ILoginValidator validator)
         {
             _logger = logger;
             _userService = userService;
+            _validator = validator;
         }
 
         [HttpPost]
         [Route("login")]
-        public async Task<IActionResult> Login([FromBody] LoginUserViewModel viewModel)
+        public async Task<IActionResult> Login([FromBody] LoginDTO loginDTO)
         {
             try
             {
-                _logger.LogInformation($"Login method called by {viewModel?.Email}");
-                if (viewModel == null)
+                var validatorResult = _validator.RunValidatorForLogin(loginDTO);
+                if (validatorResult.HasErrors()) return BadRequest(validatorResult);
+
+                _logger.LogInformation($"Login method called by {loginDTO?.Email}");
+                if (loginDTO == null)
                 {
                     return BadRequest("User cannot be null");
                 }
-                var user = await _userService.GetUserByEmail(viewModel.Email);
+                var user = await _userService.GetUserByEmail(loginDTO.Email);
                 if (user == null)
                 {
                     _logger.LogWarning("Invalid email or password");
                     return Unauthorized("Invalid email or password");
                 }
-                if (!_userService.VerifyPassword(viewModel.Password, user.Password))
+                if (!_userService.VerifyPassword(loginDTO.Password, user.Password))
                 {
                     _logger.LogWarning("Invalid email or password");
                     return Unauthorized("Invalid email or password");
                 }
-                var userViewModel = UserMapper.MapTopUserViewModel(user);
-                userViewModel.Token = _userService.GenerateToken(user.Email);
+                var userViewModel = new LoginResultDTO
+                {
+                    IdUser = user.IdUser,
+                    Name = user.Name,
+                    Email = user.Email,
+                    IdUserRole = user.IdUserRole,
+                    UserRoleName = Enum.GetName(typeof(Roles), user.IdUserRole) ?? "-",
+                    Token = _userService.GenerateToken(user.Email)
+                };
                 _logger.LogInformation("User logged in successfully");
 
                 return Ok(userViewModel);
